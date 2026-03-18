@@ -32,6 +32,10 @@ Commands:
   slk saved [n]         (sv)              Saved for later items (--all includes completed)
   slk pins <ch>         (pin)             Pinned items in a channel
 
+Workspace:
+  slk workspaces        (ws)              List all logged-in workspaces
+  slk switch <name|id>  (sw)              Switch active workspace
+
 Drafts (synced to Slack UI):
   slk draft <ch> <msg>                    Draft a channel message
   slk draft thread <ch> <ts> <msg>        Draft a thread reply
@@ -159,6 +163,17 @@ async function main() {
       case "pin":
         if (!args[1]) { console.error("Usage: slk pins <channel>"); process.exit(1); }
         await cmd.pins(args[1]);
+        break;
+
+      case "workspaces":
+      case "ws":
+        await cmd.workspaces();
+        break;
+
+      case "switch":
+      case "sw":
+        if (!args[1]) { console.error("Usage: slk switch <workspace-name|domain|team-id>"); process.exit(1); }
+        await cmd.switchWorkspace(args.slice(1).join(" "));
         break;
 
       case "drafts":

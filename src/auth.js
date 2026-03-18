@@ -39,6 +39,7 @@ const LEVELDB_DIR = join(SLACK_DIR, "Local Storage", "leveldb");
 const COOKIES_DB = join(SLACK_DIR, "Cookies");
 const CACHE_DIR = join(homedir(), ".local", "slk");
 const TOKEN_CACHE = join(CACHE_DIR, "token-cache.json");
+const ACTIVE_WORKSPACE = join(CACHE_DIR, "active-workspace");
 
 let cachedCreds = null;
 
@@ -242,6 +243,16 @@ function validateToken(token, cookie) {
 export function getCredentials(forceRefresh = false) {
   if (cachedCreds && !forceRefresh) return cachedCreds;
 
+  // If an active workspace is set, use its token from localConfig
+  const activeTeam = getActiveWorkspace();
+  if (activeTeam) {
+    try {
+      return getCredentialsForTeam(activeTeam);
+    } catch {
+      // Fall through to default extraction
+    }
+  }
+
   const cookie = decryptCookie();
 
   // Try cached token first (fastest path)
@@ -253,7 +264,20 @@ export function getCredentials(forceRefresh = false) {
     }
   }
 
-  // Extract fresh tokens from LevelDB
+  // Try localConfig_v2 first (most reliable source of tokens)
+  const config = extractLocalConfig();
+  if (config?.teams) {
+    const teamEntries = Object.values(config.teams);
+    for (const team of teamEntries) {
+      if (validateToken(team.token, cookie)) {
+        saveTokenCache(team.token);
+        cachedCreds = { token: team.token, cookie };
+        return cachedCreds;
+      }
+    }
+  }
+
+  // Extract fresh tokens from LevelDB / IndexedDB
   const candidates = extractToken();
 
   // Validate each candidate
@@ -273,4 +297,172 @@ export function getCredentials(forceRefresh = false) {
 export function refresh() {
   cachedCreds = null;
   return getCredentials(true);
+}
+
+// ── Snappy decompression (for LevelDB SSTable blocks) ──
+
+function decodeVarint(buf, offset) {
+  let result = 0, shift = 0;
+  while (offset < buf.length) {
+    const b = buf[offset++];
+    result |= (b & 0x7f) << shift;
+    if (!(b & 0x80)) return [result, offset];
+    shift += 7;
+  }
+  return [result, offset];
+}
+
+function snappyDecompress(compressed) {
+  const [uncompressedLen, dataStart] = decodeVarint(compressed, 0);
+  if (uncompressedLen > 10_000_000 || uncompressedLen < 0) throw new Error("bad length");
+  let pos = dataStart;
+  const out = Buffer.alloc(uncompressedLen);
+  let outPos = 0;
+  while (pos < compressed.length && outPos < uncompressedLen) {
+    const tag = compressed[pos++];
+    const type = tag & 3;
+    if (type === 0) {
+      let len = (tag >> 2) + 1;
+      if (len === 61) { len = compressed[pos++] + 1; }
+      else if (len === 62) { len = compressed[pos] | (compressed[pos + 1] << 8); pos += 2; len += 1; }
+      else if (len === 63) { len = compressed[pos] | (compressed[pos + 1] << 8) | (compressed[pos + 2] << 16); pos += 3; len += 1; }
+      else if (len === 64) { len = compressed[pos] | (compressed[pos + 1] << 8) | (compressed[pos + 2] << 16) | (compressed[pos + 3] << 24); pos += 4; len += 1; }
+      if (pos + len > compressed.length) throw new Error("overflow");
+      compressed.copy(out, outPos, pos, pos + len);
+      pos += len; outPos += len;
+    } else if (type === 1) {
+      const len = ((tag >> 2) & 7) + 4;
+      const off = ((tag >> 5) << 8) | compressed[pos++];
+      for (let i = 0; i < len; i++) out[outPos + i] = out[outPos - off + i];
+      outPos += len;
+    } else if (type === 2) {
+      const len = (tag >> 2) + 1;
+      const off = compressed[pos] | (compressed[pos + 1] << 8); pos += 2;
+      for (let i = 0; i < len; i++) out[outPos + i] = out[outPos - off + i];
+      outPos += len;
+    } else {
+      throw new Error("snappy type 3");
+    }
+  }
+  return out.subarray(0, outPos);
+}
+
+// ── localConfig_v2 extraction from LevelDB ──
+
+function extractLocalConfig() {
+  const files = readdirSync(LEVELDB_DIR).filter(
+    (f) => f.endsWith(".ldb") || f.endsWith(".log")
+  );
+
+  for (const file of files.sort().reverse()) {
+    try {
+      const raw = readFileSync(join(LEVELDB_DIR, file));
+      if (!raw.includes("localConfig_v2")) continue;
+
+      if (file.endsWith(".log")) {
+        const text = Buffer.from(raw.filter((b) => b !== 0)).toString("utf-8");
+        const idx = text.indexOf('{"teams"');
+        if (idx < 0) continue;
+        let depth = 0, end = -1;
+        for (let i = idx; i < text.length; i++) {
+          if (text[i] === "{") depth++;
+          else if (text[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+        }
+        if (end > 0) {
+          try { return JSON.parse(text.substring(idx, end)); } catch {}
+        }
+        continue;
+      }
+
+      // .ldb files: parse SSTable index to find the right block
+      const footerStart = raw.length - 48;
+      let fpos = footerStart;
+      const [, p1] = decodeVarint(raw, fpos);
+      const [, p2] = decodeVarint(raw, p1);
+      const [idxOff, p3] = decodeVarint(raw, p2);
+      const [idxSize] = decodeVarint(raw, p3);
+
+      const idxRaw = raw.subarray(idxOff, idxOff + idxSize);
+      const idxCompression = raw[idxOff + idxSize];
+      const idxData = idxCompression === 1 ? snappyDecompress(idxRaw) : idxRaw;
+
+      const numRestarts = idxData.readUInt32LE(idxData.length - 4);
+      const restartsOff = idxData.length - 4 - numRestarts * 4;
+
+      let epos = 0;
+      const blocks = [];
+      while (epos < restartsOff) {
+        const [shared, q1] = decodeVarint(idxData, epos);
+        const [nonShared, q2] = decodeVarint(idxData, q1);
+        const [valueLen, q3] = decodeVarint(idxData, q2);
+        const value = idxData.subarray(q3 + nonShared, q3 + nonShared + valueLen);
+        const [bOff, bp1] = decodeVarint(value, 0);
+        const [bSize] = decodeVarint(value, bp1);
+        blocks.push({ offset: bOff, size: bSize });
+        epos = q3 + nonShared + valueLen;
+      }
+
+      for (const b of blocks) {
+        try {
+          const blockRaw = raw.subarray(b.offset, b.offset + b.size);
+          const compression = raw[b.offset + b.size];
+          const data = compression === 1 ? snappyDecompress(blockRaw) : blockRaw;
+
+          const stripped = Buffer.from(data.filter((byte) => byte !== 0));
+          const text = stripped.toString("utf-8");
+          if (!text.includes("localConfig")) continue;
+
+          const teamPattern =
+            /"(T[A-Z0-9]+)":\{"id":"(T[A-Z0-9]+)","name":"([^"]*)","url":"([^"]*)","domain":"([^"]*)","token":"(xoxc-[^"]*)"/g;
+          const teams = {};
+          let m;
+          while ((m = teamPattern.exec(text)) !== null) {
+            teams[m[1]] = { id: m[1], name: m[3], url: m[4], domain: m[5], token: m[6] };
+          }
+          if (Object.keys(teams).length > 0) return { teams };
+        } catch {}
+      }
+    } catch {}
+  }
+  return null;
+}
+
+// ── Workspace management ──
+
+export function listWorkspaces() {
+  const config = extractLocalConfig();
+  if (!config?.teams) {
+    console.error("Could not extract workspace list from Slack app data.");
+    process.exit(1);
+  }
+  return config.teams;
+}
+
+export function getActiveWorkspace() {
+  try {
+    if (existsSync(ACTIVE_WORKSPACE)) {
+      return readFileSync(ACTIVE_WORKSPACE, "utf-8").trim();
+    }
+  } catch {}
+  return null;
+}
+
+export function setActiveWorkspace(teamId) {
+  mkdirSync(CACHE_DIR, { recursive: true });
+  writeFileSync(ACTIVE_WORKSPACE, teamId);
+  // Clear token cache so next getCredentials picks up the new workspace
+  try { unlinkSync(TOKEN_CACHE); } catch {}
+  cachedCreds = null;
+}
+
+export function getCredentialsForTeam(teamId) {
+  const config = extractLocalConfig();
+  if (!config?.teams?.[teamId]) {
+    throw new Error(`Workspace ${teamId} not found in Slack app data.`);
+  }
+  const team = config.teams[teamId];
+  const cookie = decryptCookie();
+  cachedCreds = { token: team.token, cookie };
+  saveTokenCache(team.token);
+  return cachedCreds;
 }

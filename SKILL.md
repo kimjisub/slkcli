@@ -1,6 +1,6 @@
 ---
 name: slack-personal
-description: Read, send, search, and manage Slack messages and DMs via the slk CLI. Use when the user asks to check Slack, read channels or DMs, send Slack messages, search Slack, check unreads, manage drafts, view saved items, or interact with Slack workspace. Also use for heartbeat Slack checks. Triggers on "check slack", "any slack messages", "send on slack", "slack unreads", "search slack", "slack threads", "draft on slack", "read slack dms", "message on slack".
+description: Read, send, search, and manage Slack messages and DMs via the slk CLI. Supports multiple workspaces with switching. Use when the user asks to check Slack, read channels or DMs, send Slack messages, search Slack, check unreads, manage drafts, view saved items, switch Slack workspaces, or interact with Slack workspace. Also use for heartbeat Slack checks. Triggers on "check slack", "any slack messages", "send on slack", "slack unreads", "search slack", "slack threads", "draft on slack", "read slack dms", "message on slack", "switch workspace", "slack workspaces".
 homepage: https://www.npmjs.com/package/slkcli
 metadata: {"moltbot":{"emoji":"💬","requires":{"bins":["slk"]},"install":[{"id":"npm","kind":"node","package":"slkcli","bins":["slk"],"label":"Install slk (npm)"}],"os":["darwin"]}}
 ---
@@ -37,6 +37,10 @@ slk pins <channel>                    # Pinned items in a channel (alias: pin)
 slk send <channel> <message>          # Send a message (alias: s)
 slk react <channel> <ts> <emoji>      # React to a message
 
+# Workspace
+slk workspaces                        # List all logged-in workspaces (alias: ws)
+slk switch <name|domain|id>           # Switch active workspace (alias: sw)
+
 # Drafts (synced to Slack editor UI)
 slk draft <channel> <message>         # Draft a channel message
 slk draft thread <ch> <ts> <message>  # Draft a thread reply
@@ -49,7 +53,7 @@ Channel accepts name (`general`), ID (`C08A8AQ2AFP`), `@username` for DMs, or us
 
 ## Auth
 
-Automatic — extracts session token from Slack desktop app's LevelDB + decrypts cookie from macOS Keychain.
+Automatic — extracts session tokens from Slack desktop app's LevelDB (`localConfig_v2`) + decrypts cookie from macOS Keychain.
 
 **First run:** macOS will show a Keychain dialog asking to allow access to "Slack Safe Storage":
 - **Allow** — one-time access, prompted again next time
@@ -57,6 +61,7 @@ Automatic — extracts session token from Slack desktop app's LevelDB + decrypts
 - **Deny** — blocks access, slk cannot authenticate
 
 **Token cache:** `~/.local/slk/token-cache.json` — auto-validated, auto-refreshed on `invalid_auth`.
+**Active workspace:** `~/.local/slk/active-workspace` — stores the selected team ID. Delete to reset to default.
 
 If auth fails (token rotated, Slack logged out):
 ```bash
@@ -65,6 +70,20 @@ slk auth
 ```
 
 Slack desktop app must be installed and logged in. Does not need to be running if token is cached.
+
+## Workspaces
+
+All workspaces logged in to the Slack desktop app are available. Tokens are extracted from `localConfig_v2` in LevelDB.
+
+```bash
+slk workspaces                        # List all workspaces (shows ← active marker)
+slk switch candid                     # Switch by name (fuzzy match)
+slk switch unipad-team                # Switch by domain
+slk switch T05BFH4UW5T               # Switch by team ID
+slk auth                              # Verify current workspace
+```
+
+The `switch` command matches against workspace name, domain, or team ID (case-insensitive, partial match supported). After switching, all subsequent commands operate on the selected workspace until switched again.
 
 ## Reading Threads
 

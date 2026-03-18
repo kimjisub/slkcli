@@ -3,7 +3,7 @@
  */
 
 import { slackApi, slackPaginate } from "./api.js";
-import { getCredentials } from "./auth.js";
+import { getCredentials, listWorkspaces, getActiveWorkspace, setActiveWorkspace } from "./auth.js";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -466,6 +466,54 @@ export async function saved(count = 20, includeCompleted = false) {
       console.log(`[saved ${savedAt}]${state} #${chName} (ts: ${item.ts}) — access denied or channel not found`);
     }
     console.log();
+  }
+}
+
+export async function workspaces() {
+  const teams = listWorkspaces();
+  const activeTeam = getActiveWorkspace();
+
+  console.log("Workspaces:\n");
+  for (const [id, info] of Object.entries(teams)) {
+    const active = id === activeTeam ? " ← active" : "";
+    console.log(`  ${info.name} (${info.domain})${active}`);
+    console.log(`    ID: ${id}  URL: ${info.url}`);
+  }
+  console.log(`\n${Object.keys(teams).length} workspaces found.`);
+}
+
+export async function switchWorkspace(query) {
+  const teams = listWorkspaces();
+
+  const q = query.toLowerCase();
+  const match = Object.entries(teams).find(
+    ([id, info]) =>
+      id === query ||
+      info.domain?.toLowerCase() === q ||
+      info.name?.toLowerCase() === q ||
+      info.domain?.toLowerCase().includes(q) ||
+      info.name?.toLowerCase().includes(q)
+  );
+
+  if (!match) {
+    console.error(`No workspace matching "${query}".`);
+    console.error("Available:");
+    for (const [id, info] of Object.entries(teams)) {
+      console.error(`  ${info.name} (${info.domain}) — ${id}`);
+    }
+    process.exit(1);
+  }
+
+  const [teamId, info] = match;
+  setActiveWorkspace(teamId);
+  console.log(`✅ Switched to ${info.name} (${info.domain})`);
+
+  // Verify the switch works
+  const data = await slackApi("auth.test");
+  if (data.ok) {
+    console.log(`   Authenticated as ${data.user} @ ${data.team}`);
+  } else {
+    console.error(`   ⚠️  Auth check failed: ${data.error}`);
   }
 }
 
