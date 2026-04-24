@@ -5,6 +5,8 @@
 Built for AI agents and terminal workflows. Zero dependencies. Zero setup.
 
 > **Not affiliated with Slack.** This is an independent Slack CLI built for personal productivity and agent automation. It uses session credentials from the Slack desktop app and works only on macOS. Use at your own discretion.
+>
+> **Security / policy warning:** `slk` does **not** use Slack's official OAuth flow. It reads locally available Slack session artifacts from the macOS desktop app (Keychain + cookie store + local app storage) and reuses them to act as the signed-in user. This is intended for personal, local automation on a machine you control. It may be inappropriate for shared machines, managed environments, or broad public distribution without additional safeguards and policy review.
 
 ## Install
 
@@ -19,6 +21,45 @@ npx slkcli auth
 ```
 
 **Requirements:** macOS, Slack desktop app (installed and logged in), Node.js 18+.
+
+### Local global install from this repo
+
+This repo already exposes a CLI entrypoint via `package.json`:
+
+```json
+"bin": {
+  "slk": "bin/slk.js"
+}
+```
+
+So when developing locally, you can install the current repo copy as a real global command:
+
+```bash
+cd /path/to/slkcli
+npm link
+```
+
+After that, these should work from anywhere:
+
+```bash
+slk auth
+slk unread
+slk read general 20
+```
+
+To remove the linked global command later:
+
+```bash
+cd /path/to/slkcli
+npm unlink -g slkcli
+```
+
+If you prefer a one-time global install instead of a live symlink:
+
+```bash
+cd /path/to/slkcli
+npm install -g .
+```
 
 ## Agent Skill
 
@@ -70,6 +111,12 @@ slk thread general 1234567890.123456
 
 # React to a message
 slk react general 1234567890.123456 thumbsup
+
+# List available Slack workspaces from the local Slack app
+slk workspaces
+
+# Switch the active workspace used by subsequent commands
+slk switch alpaon
 ```
 
 ## Commands
@@ -90,6 +137,8 @@ slk react general 1234567890.123456 thumbsup
 | `slk starred` | `star` | Show VIP users and starred items |
 | `slk saved [count]` | `sv` | Show saved for later items (active by default, `--all` includes completed) |
 | `slk pins <channel>` | `pin` | Show pinned items in a channel |
+| `slk workspaces` | `ws` | List all logged-in Slack workspaces found in the local desktop app |
+| `slk switch <name|domain|team-id>` | `sw` | Switch the active workspace used for subsequent commands |
 
 ### Flags
 
@@ -158,6 +207,29 @@ slk react @andrej 1769753479.788949 fire
 slk read U07RQTFCLUC 50
 ```
 
+### Workspaces
+
+If you're signed into multiple Slack workspaces in the desktop app, `slk` can enumerate and switch between them.
+
+```bash
+# Show all discovered workspaces (the active one is marked)
+slk workspaces
+
+# Switch by workspace name
+slk switch candid
+
+# Switch by domain
+slk switch alpaon
+
+# Switch by Slack team ID
+slk switch T06QABB3SAE
+
+# Verify which workspace is active
+slk auth
+```
+
+The active workspace selection is stored in `~/.local/slk/active-workspace`.
+
 ## Authentication
 
 `slk` uses the credentials already stored by the Slack desktop app. No OAuth flows, no manual token management.
@@ -184,7 +256,10 @@ On first run, macOS will show a Keychain dialog asking whether to allow access t
 
 ### Token caching
 
-Validated tokens are cached to avoid re-extracting on every invocation:
+Validated tokens are cached to avoid re-extracting on every invocation.
+
+> **Important:** the cache contains a reusable Slack user session token. Treat it as sensitive credential material. On personal machines this may be an acceptable trade-off for convenience. On shared or higher-risk environments, disk caching should be disabled or replaced with a more secure storage strategy.
+
 
 | | |
 |---|---|
@@ -269,6 +344,7 @@ npm link                   # symlink globally for development
 
 ## Notes
 
+- **Personal machine oriented** — this tool assumes local access to your signed-in Slack desktop app and should be treated as a personal automation tool, not a general-purpose enterprise auth integration.
 - **macOS only** — uses Keychain and Electron storage paths specific to macOS.
 - **Both Slack variants supported** — works with the direct download (`~/Library/Application Support/Slack/`) and the Mac App Store version (`~/Library/Containers/com.tinyspeck.slackmacgap/.../Slack/`). The correct path is auto-detected at runtime.
 - **Slack desktop app required** — must be installed and logged in. The app does not need to be running for cached tokens.
