@@ -68,7 +68,7 @@ Examples:
 
 Auth: reads credentials from the Slack desktop app automatically.
 Cache: ~/.local/slk/token-cache.json (auto-validated, auto-refreshed).
-Docs:  https://github.com/therohitdas/slkcli`;
+Docs:  https://github.com/kimjisub/slkcli`;
 
 async function main() {
   try {

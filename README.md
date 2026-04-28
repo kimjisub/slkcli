@@ -1,12 +1,20 @@
-# slk 💬 — Slack CLI for macOS, so your agents can read and send messages
+# slk 💬
 
-`slk` is a Slack command-line tool for macOS that auto-extracts auth from the Slack desktop app. Read channels, send messages, search, manage drafts, track unreads, and view pins — no tokens, no OAuth, no config.
+A macOS Slack CLI built for agent workflows.
 
-Built for AI agents and terminal workflows. Zero dependencies. Zero setup.
+`slk` reads the Slack desktop app's local session data, so you can work with Slack from the terminal without setting up OAuth apps, bot tokens, or manual cookie copying. It is designed for personal automation, AI agents, and fast terminal-native Slack workflows.
 
-> **Not affiliated with Slack.** This is an independent Slack CLI built for personal productivity and agent automation. It uses session credentials from the Slack desktop app and works only on macOS. Use at your own discretion.
+> Not affiliated with Slack. This tool uses your existing Slack desktop session and acts as your user account.
 >
-> **Security / policy warning:** `slk` does **not** use Slack's official OAuth flow. It reads locally available Slack session artifacts from the macOS desktop app (Keychain + cookie store + local app storage) and reuses them to act as the signed-in user. This is intended for personal, local automation on a machine you control. It may be inappropriate for shared machines, managed environments, or broad public distribution without additional safeguards and policy review.
+> Security / policy warning: `slk` does not use Slack's official OAuth flow. It reads locally available Slack session artifacts from the macOS desktop app and reuses them to act as the signed-in user. This is intended for personal automation on a machine you control.
+
+## Why slk
+
+- zero OAuth setup
+- works with the Slack desktop app you already use
+- built for CLI and agent workflows
+- supports reading, searching, sending, reacting, drafts, pins, saved items, unread tracking, and workspace switching
+- macOS-native auth flow using Keychain + local Slack storage
 
 ## Install
 
@@ -14,340 +22,218 @@ Built for AI agents and terminal workflows. Zero dependencies. Zero setup.
 npm install -g slkcli
 ```
 
-One-shot (no install):
+Or run it one-off:
 
 ```bash
 npx slkcli auth
 ```
 
-**Requirements:** macOS, Slack desktop app (installed and logged in), Node.js 18+.
+Requirements:
+- macOS
+- Slack desktop app installed and logged in
+- Node.js 18+
 
-### Local global install from this repo
-
-This repo already exposes a CLI entrypoint via `package.json`:
-
-```json
-"bin": {
-  "slk": "bin/slk.js"
-}
-```
-
-So when developing locally, you can install the current repo copy as a real global command:
+### Local development install
 
 ```bash
 cd /path/to/slkcli
 npm link
 ```
 
-After that, these should work from anywhere:
+To remove the global symlink later:
 
 ```bash
-slk auth
-slk unread
-slk read general 20
-```
-
-To remove the linked global command later:
-
-```bash
-cd /path/to/slkcli
 npm unlink -g slkcli
 ```
 
-If you prefer a one-time global install instead of a live symlink:
+If you want a one-time install from the checked-out repo instead:
 
 ```bash
-cd /path/to/slkcli
 npm install -g .
 ```
-
-## Agent Skill
-
-Add to your AI agent (Claude Code, Codex, Moltbot, etc.):
-
-```bash
-# ClawdHub
-clawdhub install slack-personal
-
-# skills.sh
-npx skills add therohitdas/slkcli
-```
-
-Browse on [ClawdHub](https://www.clawhub.ai/therohitdas/slack-personal).
 
 ## Quickstart
 
 ```bash
-# Verify your session works
+# verify auth
 slk auth
 
-# List channels
+# list channels, DMs, and workspaces
 slk channels
-
-# Read the last 20 messages in a channel
-slk read general
-slk read C08A8AQ2AFP        # by channel ID
-
-# Send a message
-slk send general "Hello from slk"
-
-# Search across the workspace
-slk search "deployment failed"
-
-# Check what's unread
-slk unread
-
-# See starred items and VIP users
-slk starred
-
-# See saved for later items
-slk saved
-
-# See pinned messages in a channel
-slk pins general
-
-# Read a thread
-slk thread general 1234567890.123456
-
-# React to a message
-slk react general 1234567890.123456 thumbsup
-
-# List available Slack workspaces from the local Slack app
+slk dms
 slk workspaces
 
-# Switch the active workspace used by subsequent commands
+# read channel or DM
+slk read general
+slk read @andrej 50
+
+# switch workspace when multiple Slack teams are signed in locally
 slk switch alpaon
+
+# search workspace
+slk search "deployment failed"
+
+# send a message
+slk send general "hello from slk"
+slk send @andrej "hey, can you take a look?"
+
+# inspect attention queues
+slk unread
+slk activity
+slk saved
+slk pins general
+
+# work with threads
+slk read general 20 --ts
+slk thread general 1769753479.788949
+slk react general 1769753479.788949 thumbsup
+
+# save a draft into Slack UI
+slk draft general "draft for review"
 ```
 
 ## Commands
 
 | Command | Alias | Description |
-|---------|-------|-------------|
-| `slk auth` | | Test authentication, show user/team info |
-| `slk channels` | `ch` | List all channels with member counts |
-| `slk dms` | `dm` | List DM conversations with IDs |
-| `slk users` | `u` | List workspace users with statuses |
-| `slk read <channel> [count]` | `r` | Read recent messages (default: 20) |
-| `slk send <channel> <message>` | `s` | Send a message to a channel |
-| `slk search <query> [count]` | | Search messages across the workspace |
-| `slk thread <channel> <ts> [count]` | `t` | Read thread replies (default: 50) |
-| `slk react <channel> <ts> <emoji>` | | Add an emoji reaction to a message |
-| `slk activity` | `a` | Show all channel activity with unread/mention counts |
-| `slk unread` | `ur` | Show only channels with unreads (excludes muted) |
-| `slk starred` | `star` | Show VIP users and starred items |
-| `slk saved [count]` | `sv` | Show saved for later items (active by default, `--all` includes completed) |
-| `slk pins <channel>` | `pin` | Show pinned items in a channel |
-| `slk workspaces` | `ws` | List all logged-in Slack workspaces found in the local desktop app |
-| `slk switch <name|domain|team-id>` | `sw` | Switch the active workspace used for subsequent commands |
+|---|---|---|
+| `slk auth` |  | Test auth and show workspace identity |
+| `slk channels` | `ch` | List channels |
+| `slk dms` | `dm` | List DM conversations |
+| `slk users` | `u` | List workspace users |
+| `slk read <channel> [count]` | `r` | Read recent messages |
+| `slk send <channel> <message>` | `s` | Send a message |
+| `slk search <query> [count]` |  | Search workspace messages |
+| `slk thread <channel> <ts> [count]` | `t` | Read thread replies |
+| `slk react <channel> <ts> <emoji>` |  | Add a reaction |
+| `slk activity` | `a` | Show channel activity with unread and mention counts |
+| `slk unread` | `ur` | Show only unread channels |
+| `slk starred` | `star` | Show starred items and VIP users |
+| `slk saved [count]` | `sv` | Show saved-for-later items |
+| `slk pins <channel>` | `pin` | Show pinned items |
+| `slk workspaces` | `ws` | List locally discovered logged-in Slack workspaces |
+| `slk switch <name|domain|team-id>` | `sw` | Switch the active workspace used by later commands |
+| `slk draft <channel> <message>` |  | Create a channel draft |
+| `slk draft thread <channel> <ts> <message>` |  | Create a thread draft |
+| `slk draft user <user_id> <message>` |  | Create a DM draft |
+| `slk drafts` |  | List active drafts |
+| `slk draft drop <draft_id>` |  | Delete a draft |
 
-### Flags
+## Useful flags
 
 | Flag | Description |
-|------|-------------|
-| `--ts` | Show raw Slack timestamps (useful for getting ts to read threads) |
-| `--threads` | Auto-expand all threads when reading messages |
-| `--from YYYY-MM-DD` | Read messages from this date onwards |
-| `--to YYYY-MM-DD` | Read messages until this date |
-| `--no-emoji` | Disable emoji in output (or set `NO_EMOJI=1`) |
+|---|---|
+| `--ts` | Show raw Slack timestamps for thread follow-up |
+| `--threads` | Auto-expand threads while reading |
+| `--from YYYY-MM-DD` | Read messages from a date onward |
+| `--to YYYY-MM-DD` | Read messages until a date |
 | `--all` | Include completed items in `slk saved` |
+| `--no-emoji` | Disable emoji output |
+
+## Channel, DM, and workspace resolution
+
+You can target conversations by:
+- channel name: `general`
+- channel ID: `C08A8AQ2AFP`
+- DM username: `@andrej`
+- Slack user ID: `U07RQTFCLUC`
+- workspace name/domain/team-id for `slk switch`
+
+Examples:
 
 ```bash
-# Get timestamps to use with thread command
-slk read general 10 --ts
-# Output: [1/30/2026, 11:41:19 AM ts:1769753479.788949] User [3 replies]:
-
-# Then read that thread
-slk thread general 1769753479.788949
+slk read general
+slk read C08A8AQ2AFP
+slk read @andrej 100 --threads
+slk send U07RQTFCLUC "hello"
+slk switch alpaon
+slk switch teamcandid
 ```
 
-### Drafts
-
-Drafts sync to Slack — they appear in the Slack editor UI.
-
-| Command | Description |
-|---------|-------------|
-| `slk draft <channel> <message>` | Draft a channel message |
-| `slk draft thread <channel> <ts> <message>` | Draft a thread reply |
-| `slk draft user <user_id> <message>` | Draft a DM |
-| `slk drafts` | List all active drafts |
-| `slk draft drop <draft_id>` | Delete a draft |
-
-### Channel resolution
-
-Channels can be specified by **name** or **ID** in any command:
-
-```bash
-slk read general           # by name
-slk read ai-coding         # by name
-slk read C08A8AQ2AFP       # by ID
-```
-
-### DMs
-
-Read, send, and react to DMs using `@username` or user ID:
-
-```bash
-# List all DM conversations
-slk dms
-
-# Read DMs by username
-slk read @andrej 50
-slk read @nikhil 100 --threads    # auto-expand threads
-
-# Read DMs with date range
-slk read @andrej 100 --from 2026-02-01 --to 2026-02-07 --threads
-
-# Send DM
-slk send @andrej "hey, check this out"
-
-# React to DM message
-slk react @andrej 1769753479.788949 fire
-
-# By user ID (U...)
-slk read U07RQTFCLUC 50
-```
-
-### Workspaces
+## Multiple workspaces
 
 If you're signed into multiple Slack workspaces in the desktop app, `slk` can enumerate and switch between them.
 
 ```bash
-# Show all discovered workspaces (the active one is marked)
+# show discovered workspaces
 slk workspaces
 
-# Switch by workspace name
-slk switch candid
-
-# Switch by domain
+# switch by workspace name
 slk switch alpaon
 
-# Switch by Slack team ID
-slk switch T06QABB3SAE
-
-# Verify which workspace is active
-slk auth
+# switch by Slack domain or team id
+slk switch teamcandid
+slk switch T12345678
 ```
 
-The active workspace selection is stored in `~/.local/slk/active-workspace`.
+The selected workspace is then used for subsequent `slk` commands.
 
-## Authentication
+## How auth works
 
-`slk` uses the credentials already stored by the Slack desktop app. No OAuth flows, no manual token management.
+`slk` reuses the credentials already present in the Slack desktop app.
 
-### Keychain access prompt
+1. reads the encrypted `d` cookie from Slack's local cookie store
+2. decrypts it using the `Slack Safe Storage` key from macOS Keychain
+3. scans Slack local storage for `xoxc-` session tokens
+4. validates candidate credentials against Slack
+5. caches the working token locally for faster future runs
 
-On first run, macOS will show a Keychain dialog asking whether to allow access to "Slack Safe Storage":
+Token cache location:
 
-- **Allow** — grants one-time access. You'll be prompted again next time slk needs to decrypt the cookie.
-- **Always Allow** — grants permanent access for this binary. No future prompts.
-- **Deny** — blocks access. slk cannot authenticate.
-
-> **Caution:** Choosing "Always Allow" means any process running as your user that invokes the `slk` binary (or the `security` command targeting "Slack Safe Storage") can read the encryption key without a prompt. This is convenient but reduces the security boundary — any code running in your terminal (scripts, agents, other CLI tools) could trigger credential extraction silently. On a personal machine this is a reasonable trade-off. On a shared or managed machine, prefer "Allow" so you get prompted each time and maintain visibility into access.
-
-### How it works
-
-1. **Cookie decryption** — Reads the encrypted `d` cookie from Slack's SQLite cookie store (`Cookies` file). Decrypts it using the "Slack Safe Storage" key from the macOS Keychain via PBKDF2 + AES-128-CBC. Supports both direct-download and Mac App Store keychain account names.
-
-2. **Token extraction** — Scans Slack's LevelDB storage (`Local Storage/leveldb/`) for `xoxc-` session tokens. Uses both direct regex scanning and a Python fallback for Snappy-compressed entries. The Slack data directory is auto-detected (direct download or App Store sandbox).
-
-3. **Validation** — Tests each candidate token against `auth.test` with the decrypted cookie. The first valid pair is used.
-
-4. **Auto-refresh** — On `invalid_auth`, credentials are re-extracted and the request is retried once automatically.
-
-### Token caching
-
-Validated tokens are cached to avoid re-extracting on every invocation.
-
-> **Important:** the cache contains a reusable Slack user session token. Treat it as sensitive credential material. On personal machines this may be an acceptable trade-off for convenience. On shared or higher-risk environments, disk caching should be disabled or replaced with a more secure storage strategy.
-
-
-| | |
-|---|---|
-| **Cache file** | `~/.local/slk/token-cache.json` |
-| **Format** | `{ "token": "xoxc-...", "ts": 1706000000000 }` |
-| **Behavior** | Load cache → validate with Slack API → use if valid, otherwise re-extract from LevelDB |
-| **In-memory** | Within a single process, credentials are cached in memory after first load |
-
-### Credential resolution order
-
-```
-1. In-memory cache (same process)
-2. Disk cache (~/.local/slk/token-cache.json) → validate → use if ok
-3. Fresh extraction from Slack desktop app → validate → cache → use
+```text
+~/.local/slk/token-cache.json
 ```
 
-### What it reads from your system
-
-| Data | Source | Purpose |
-|------|--------|---------|
-| Keychain password | `security find-generic-password -s "Slack Safe Storage"` | Derive AES key for cookie decryption |
-| Encrypted cookie | `<slack-data-dir>/Cookies` (SQLite) | Decrypt the `d` session cookie (`xoxd-`) |
-| Session token | `<slack-data-dir>/Local Storage/leveldb/` | Extract `xoxc-` token |
-
-## Agent usage patterns
-
-`slk` is designed to be used by AI agents. Common patterns:
+If auth gets stuck or Slack rotated your session:
 
 ```bash
-# Check auth before doing anything
+rm ~/.local/slk/token-cache.json
 slk auth
-
-# Get channel list, find the right one
-slk channels
-
-# Read recent context from a channel
-slk read engineering 50
-
-# Search for something specific
-slk search "PR review needed"
-
-# Check what needs attention
-slk unread
-
-# See pinned context in a channel
-slk pins engineering
-
-# Send a message
-slk send engineering "Build passed on main"
-
-# Read a thread for full context
-slk thread engineering 1706000000.000000
-
-# Draft a message for human review (appears in Slack UI)
-slk draft engineering "Here's the summary of today's standup..."
 ```
 
-**Exit codes:** `0` on success, `1` on error. Errors are printed to stderr.
+## Security note
 
-## How it was installed
+On first run, macOS may ask whether to allow access to `Slack Safe Storage`.
 
-The `bin` field in `package.json` maps `slk` to `./bin/slk.js`:
+- `Allow` gives one-time access
+- `Always Allow` is more convenient, but lowers the security boundary for any process running as your user
+- `Deny` prevents `slk` from authenticating
 
-```json
-{ "bin": { "slk": "./bin/slk.js" } }
-```
+If this machine is shared or tightly managed, prefer the more conservative option.
 
-Running `npm install -g` creates a symlink in your PATH:
+## Agent-friendly workflows
 
-```
-/opt/homebrew/bin/slk -> ../lib/node_modules/slkcli/bin/slk.js
-```
+`slk` is especially useful when an agent needs real Slack context.
+
+Examples:
+- `slk unread` → find what needs attention now
+- `slk read <channel> 100` → summarize decisions and action items
+- `slk search "launch checklist"` → recover prior context
+- `slk pins <channel>` → inspect canonical references
+- `slk draft <channel> "..."` → prepare a message for human review
+- `slk thread <channel> <ts>` → inspect the full decision trail in a thread
+- `slk workspaces` / `slk switch ...` → move between locally signed-in workspaces without reconfiguring tokens
 
 ## Development
 
 ```bash
-git clone https://github.com/therohitdas/slk.git
-cd slk
-node bin/slk.js auth       # run directly
-npm link                   # symlink globally for development
+git clone https://github.com/kimjisub/slkcli.git
+cd slkcli
+node bin/slk.js auth
+npm link
 ```
 
 ## Notes
 
-- **Personal machine oriented** — this tool assumes local access to your signed-in Slack desktop app and should be treated as a personal automation tool, not a general-purpose enterprise auth integration.
-- **macOS only** — uses Keychain and Electron storage paths specific to macOS.
-- **Both Slack variants supported** — works with the direct download (`~/Library/Application Support/Slack/`) and the Mac App Store version (`~/Library/Containers/com.tinyspeck.slackmacgap/.../Slack/`). The correct path is auto-detected at runtime.
-- **Slack desktop app required** — must be installed and logged in. The app does not need to be running for cached tokens.
-- **Zero dependencies** — uses only Node.js built-in modules (`crypto`, `fs`, `child_process`, `fetch`).
-- **Session-based** — uses `xoxc-` tokens (user session), not bot tokens. This means you act as yourself.
-- **Mute-aware** — `activity` and `unread` commands respect your mute settings.
+- macOS only
+- Slack desktop app required
+- zero runtime dependencies beyond Node built-ins
+- session-based, so actions happen as your user account
+- `activity` and `unread` respect mute settings
+
+## Inspiration
+
+This project was lightly inspired by earlier Slack CLI work, especially [`therohitdas/slkcli`](https://github.com/therohitdas/slkcli), and is being adapted here for a more agent-centric workflow.
+
+## License
+
+MIT

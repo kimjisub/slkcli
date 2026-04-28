@@ -7,11 +7,11 @@
   "author": "Rohit Das",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/therohitdas/slkcli.git"
+    "url": "git+https://github.com/kimjisub/slkcli.git"
   },
-  "homepage": "https://github.com/therohitdas/slkcli",
+  "homepage": "https://github.com/kimjisub/slkcli",
   "bugs": {
-    "url": "https://github.com/therohitdas/slkcli/issues"
+    "url": "https://github.com/kimjisub/slkcli/issues"
   },
   "keywords": [
     "slack",

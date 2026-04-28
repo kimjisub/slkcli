@@ -115,4 +115,4 @@ slk thread general 1769753479.788949
 
 ## Missing Features & Issues
 
-Create PR or Report Issue at: https://github.com/therohitdas/slkcli
+Create PR or Report Issue at: https://github.com/kimjisub/slkcli
