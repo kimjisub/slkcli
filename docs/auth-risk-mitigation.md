@@ -1,10 +1,10 @@
-# slk auth risk mitigation TODO
+# slacklane auth risk mitigation TODO
 
 This document tracks concrete mitigations for the current auth approach.
 
 ## Current risk summary
 
-`slk` currently authenticates by reading local Slack desktop session artifacts:
+`slacklane` currently authenticates by reading local Slack desktop session artifacts:
 - macOS Keychain (`Slack Safe Storage`)
 - Slack cookie store (`Cookies` SQLite)
 - Slack local storage (`LevelDB`, `IndexedDB` fallback)
@@ -16,15 +16,15 @@ This is practical for personal automation, but sensitive for public distribution
 
 ### 1. Harden token cache handling
 - [ ] Set cache file permissions explicitly to `0600`
-- [ ] Verify parent dir permissions on `~/.local/slk`
+- [ ] Verify parent dir permissions on `~/.local/slacklane`
 - [ ] Avoid leaving plaintext tokens world-readable under any failure mode
 - [ ] Consider atomic writes for cache replacement
 
 ### 2. Add cache control modes
 - [ ] `--no-cache` runtime flag
-- [ ] `SLK_NO_CACHE=1` environment variable
+- [ ] `SLACKLANE_NO_CACHE=1` environment variable
 - [ ] optional short TTL / expiration policy for cached tokens
-- [ ] optional command to clear cache (`slk logout` / `slk cache clear`)
+- [ ] optional command to clear cache (`slacklane logout` / `slacklane cache clear`)
 
 ### 3. Reduce extraction aggressiveness
 - [ ] Consider making IndexedDB fallback opt-in instead of always-on
@@ -32,9 +32,9 @@ This is practical for personal automation, but sensitive for public distribution
 - [ ] Prefer the least invasive source that works (`localConfig_v2` before broader scans)
 
 ### 4. Safer defaults for AI agent usage
-- [ ] Document that using `slk` from agents effectively grants Slack user-session access to those agents
+- [ ] Document that using `slacklane` from agents effectively grants Slack user-session access to those agents
 - [ ] Consider a read-only mode for agent workflows
-- [ ] Consider gating write commands behind explicit flag / env (`SLK_ENABLE_WRITE=1`)
+- [ ] Consider gating write commands behind explicit flag / env (`SLACKLANE_ENABLE_WRITE=1`)
 
 ### 5. Improve auditability
 - [ ] Add a command to explain which auth source was used (cache / localConfig / LevelDB / IndexedDB)

@@ -1,6 +1,6 @@
 # CLAUDE.md — Quick Reference for Claude Code / Codex
 
-## What is slk?
+## What is slacklane?
 
 Slack CLI for macOS. Auto-auth from Slack desktop app (session cookies, no bot install). Zero dependencies.
 
@@ -10,26 +10,27 @@ Slack CLI for macOS. Auto-auth from Slack desktop app (session cookies, no bot i
 - `src/api.js` — `slackApi()` and `slackPaginate()`. Add POST endpoints to `writeMethods` array.
 - `src/auth.js` — Keychain + LevelDB credential extraction + Snappy decompression + workspace management.
 - `src/drafts.js` — Draft commands (create/list/drop).
-- `bin/slk.js` — CLI entry point. Command routing + help text.
+- `bin/slacklane.js` — CLI entry point. Command routing + help text.
 
 ## Adding a Feature
 
 1. Add function in `src/commands.js` (export async)
 2. If new API needs POST → add to `writeMethods` in `src/api.js`
-3. Add case + alias in `bin/slk.js` switch block
-4. Add to HELP string in `bin/slk.js`
+3. Add case + alias in `bin/slacklane.js` switch block
+4. Add to HELP string in `bin/slacklane.js`
 5. Update `README.md` (commands table, examples, flags if any)
 6. Update `SKILL.md` (commands list)
 7. `npm version patch --no-git-tag-version`
 8. `git add -A && git commit -m "feat: ..." && git push`
 9. `echo "//registry.npmjs.org/:_authToken=${NPM_PUBLISH_TOKEN}" > .npmrc && npm publish && rm .npmrc`
-10. `cp SKILL.md ~/moltbot/skills/slk/SKILL.md`
+10. `cp SKILL.md ~/moltbot/skills/slacklane/SKILL.md`
 
 ## Testing
 
 ```bash
-node bin/slk.js <command>   # Direct run
-slk <command>               # If globally linked
+node bin/slacklane.js <command>   # Direct run
+slacklane <command>               # Canonical global name
+slk <command>                     # Legacy alias
 ```
 
 ## Patterns
@@ -44,8 +45,8 @@ slk <command>               # If globally linked
 ## Auth
 
 Session-based (`xoxc-` token + `xoxd-` cookie). Auto-extracted from Slack desktop app on macOS.
-- Token cache: `~/.local/slk/token-cache.json`. Delete to force re-extract.
-- Active workspace: `~/.local/slk/active-workspace`. Delete to reset to default.
+- Token cache: `~/.local/slacklane/token-cache.json`. Delete to force re-extract.
+- Active workspace: `~/.local/slacklane/active-workspace`. Delete to reset to default.
 
 ### Multi-workspace
 

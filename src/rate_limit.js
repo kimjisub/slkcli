@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DEFAULT_MIN_INTERVAL_MS = Number(process.env.SLK_MIN_REQUEST_INTERVAL_MS || 1200);
-const DEFAULT_LOCK_STALE_MS = Number(process.env.SLK_LOCK_STALE_MS || 30_000);
-const DEFAULT_LOCK_POLL_MS = Number(process.env.SLK_LOCK_POLL_MS || 100);
+const DEFAULT_MIN_INTERVAL_MS = Number(process.env.SLACKLANE_MIN_REQUEST_INTERVAL_MS || process.env.SLK_MIN_REQUEST_INTERVAL_MS || 1200);
+const DEFAULT_LOCK_STALE_MS = Number(process.env.SLACKLANE_LOCK_STALE_MS || process.env.SLK_LOCK_STALE_MS || 30_000);
+const DEFAULT_LOCK_POLL_MS = Number(process.env.SLACKLANE_LOCK_POLL_MS || process.env.SLK_LOCK_POLL_MS || 100);
 
 export function getRuntimeDir() {
-  return process.env.SLK_RUNTIME_DIR || path.join(os.homedir(), '.local', 'slk', 'runtime');
+  return process.env.SLACKLANE_RUNTIME_DIR || process.env.SLK_RUNTIME_DIR || path.join(os.homedir(), '.local', 'slacklane', 'runtime');
 }
 
 function getStatePath(runtimeDir = getRuntimeDir()) {

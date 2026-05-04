@@ -1,15 +1,15 @@
-# slk public-release checklist
+# slacklane public-release checklist
 
-Use this checklist before treating `slk` as a broadly distributed public tool rather than a personal automation utility.
+Use this checklist before treating `slacklane` as a broadly distributed public tool rather than a personal automation utility.
 
 ## Positioning
-- [ ] Decide whether `slk` is explicitly **personal-use only** or intended for broader public use
+- [ ] Decide whether `slacklane` is explicitly **personal-use only** or intended for broader public use
 - [ ] If personal-use only, say that clearly in README and package metadata
 - [ ] If public-use, document the auth model and its trade-offs very prominently
 
 ## Auth model clarity
-- [ ] README clearly states that `slk` does **not** use Slack OAuth
-- [ ] README clearly states that `slk` reuses local desktop session credentials
+- [ ] README clearly states that `slacklane` does **not** use Slack OAuth
+- [ ] README clearly states that `slacklane` reuses local desktop session credentials
 - [ ] README clearly explains what system data is accessed
 - [ ] README clearly states that commands act as the signed-in user
 
@@ -20,7 +20,7 @@ Use this checklist before treating `slk` as a broadly distributed public tool ra
 - [ ] Sensitive data is never printed to stdout/stderr by default
 
 ## Safety for AI/automation use
-- [ ] Agent/automation documentation explains that `slk` grants Slack session access
+- [ ] Agent/automation documentation explains that `slacklane` grants Slack session access
 - [ ] Write commands are intentionally designed, not accidental
 - [ ] Optional write gate / read-only mode exists if needed
 

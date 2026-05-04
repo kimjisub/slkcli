@@ -1,17 +1,17 @@
 {
-  "name": "slkcli",
+  "name": "slacklane",
   "version": "0.3.0",
-  "description": "Slack CLI for macOS, so your agents can read and send messages",
+  "description": "Slack desktop-session CLI for agent workflows on macOS",
   "type": "module",
   "license": "MIT",
   "author": "Rohit Das",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kimjisub/slkcli.git"
+    "url": "git+https://github.com/kimjisub/slacklane.git"
   },
-  "homepage": "https://github.com/kimjisub/slkcli",
+  "homepage": "https://github.com/kimjisub/slacklane",
   "bugs": {
-    "url": "https://github.com/kimjisub/slkcli/issues"
+    "url": "https://github.com/kimjisub/slacklane/issues"
   },
   "keywords": [
     "slack",
@@ -25,7 +25,8 @@
     "messaging"
   ],
   "bin": {
-    "slk": "bin/slk.js"
+    "slacklane": "bin/slacklane.js",
+    "slk": "bin/slacklane.js"
   },
   "files": [
     "bin/",
@@ -37,7 +38,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "node bin/slk.js",
+    "dev": "node bin/slacklane.js",
     "test": "node --test",
     "test:live": "node --test tests/live-slack.test.js"
   },
