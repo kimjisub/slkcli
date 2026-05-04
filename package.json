@@ -1,6 +1,6 @@
 {
   "name": "slkcli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Slack CLI for macOS, so your agents can read and send messages",
   "type": "module",
   "license": "MIT",
@@ -37,7 +37,9 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "node bin/slk.js"
+    "dev": "node bin/slk.js",
+    "test": "node --test",
+    "test:live": "node --test tests/live-slack.test.js"
   },
   "dependencies": {},
   "devDependencies": {}

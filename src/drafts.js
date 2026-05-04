@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { slackApi } from "./api.js";
+import { slackApi, slackPaginate } from "./api.js";
 
 /**
  * Create a draft for a channel.
@@ -39,22 +39,23 @@ export async function draftThread(channel, threadTs, message) {
 /**
  * Create a draft DM.
  */
-export async function draftUser(userId, message) {
-  // Open a DM conversation to get the channel ID
-  const conv = await slackApi("conversations.open", { users: userId });
-  if (!conv.ok) {
-    console.error(`❌ Can't open DM with ${userId}: ${conv.error}`);
-    process.exit(1);
-  }
-  const channelId = conv.channel.id;
+export async function draftDm(userRef, message) {
+  const channelId = await resolveDmChannelId(userRef);
   const data = await createDraft(channelId, null, null, message);
   if (data.ok) {
-    console.log(`📝 Draft saved → DM @${userId} (${data.draft.id})`);
+    console.log(`📝 Draft saved → DM ${userRef} (${data.draft.id})`);
     console.log(`   Check Slack — draft icon should appear.`);
   } else {
     console.error(`❌ Failed: ${data.error}`);
     process.exit(1);
   }
+}
+
+/**
+ * Backward-compatible alias.
+ */
+export async function draftUser(userRef, message) {
+  return draftDm(userRef, message);
 }
 
 /**
@@ -130,6 +131,32 @@ async function resolveChannelId(nameOrId) {
   );
   if (!ch) throw new Error(`Channel not found: ${nameOrId}`);
   return ch.id;
+}
+
+async function resolveDmChannelId(userRef) {
+  if (/^D/.test(userRef)) return userRef;
+
+  if (/^U/.test(userRef)) {
+    const conv = await slackApi("conversations.open", { users: userRef });
+    if (!conv.ok) throw new Error(`Can't open DM with ${userRef}: ${conv.error}`);
+    return conv.channel.id;
+  }
+
+  const username = userRef.replace(/^@/, "").toLowerCase();
+  const usersData = await slackPaginate("users.list", {}, "members");
+  if (!usersData.ok) throw new Error(`Failed to list users: ${usersData.error}`);
+
+  const user = usersData.members.find(
+    (u) => u.name?.toLowerCase() === username ||
+      u.real_name?.toLowerCase() === username ||
+      u.profile?.display_name?.toLowerCase() === username
+  );
+
+  if (!user) throw new Error(`User not found: ${userRef}`);
+
+  const conv = await slackApi("conversations.open", { users: user.id });
+  if (!conv.ok) throw new Error(`Can't open DM with ${userRef}: ${conv.error}`);
+  return conv.channel.id;
 }
 
 async function createDraft(channelId, threadTs, userIds, text) {

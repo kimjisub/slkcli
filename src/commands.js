@@ -72,6 +72,72 @@ function formatTs(ts) {
   return new Date(parseFloat(ts) * 1000).toLocaleString();
 }
 
+function printMessage(users, msg, { showTs = true, prefix = "", indent = "  " } = {}) {
+  const who = userName(users, msg.user);
+  const time = formatTs(msg.ts);
+  const tsStr = showTs ? ` ts:${msg.ts}` : "";
+  const thread = msg.reply_count ? ` [${msg.reply_count} replies]` : "";
+  console.log(`${prefix}[${time}${tsStr}] ${who}${thread}:`);
+  console.log(`${indent}${msg.text || ""}`);
+  if (msg.files?.length) {
+    for (const f of msg.files) {
+      console.log(`${indent}📎 ${f.name} (${f.mimetype})`);
+    }
+  }
+}
+
+async function fetchMessage(channel, ts) {
+  const data = await slackApi("conversations.history", {
+    channel,
+    latest: ts,
+    inclusive: true,
+    limit: 1,
+  });
+
+  if (!data.ok) {
+    throw new Error(`Failed to fetch message: ${data.error}`);
+  }
+
+  const msg = data.messages?.[0];
+  if (!msg || msg.ts !== ts) {
+    throw new Error(`Message not found at ts ${ts}`);
+  }
+
+  return msg;
+}
+
+async function fetchMessageContext(channel, ts, before = 2, after = 2) {
+  const [olderData, newerData] = await Promise.all([
+    slackApi("conversations.history", {
+      channel,
+      latest: ts,
+      inclusive: true,
+      limit: before + 1,
+    }),
+    slackApi("conversations.history", {
+      channel,
+      oldest: ts,
+      inclusive: true,
+      limit: after + 1,
+    }),
+  ]);
+
+  if (!olderData.ok) throw new Error(`Failed to fetch older context: ${olderData.error}`);
+  if (!newerData.ok) throw new Error(`Failed to fetch newer context: ${newerData.error}`);
+
+  const older = [...(olderData.messages || [])].reverse();
+  const newer = newerData.messages || [];
+  const merged = [...older, ...newer.slice(1)];
+  const deduped = [];
+  const seen = new Set();
+  for (const msg of merged) {
+    if (!msg?.ts || seen.has(msg.ts)) continue;
+    seen.add(msg.ts);
+    deduped.push(msg);
+  }
+  return deduped;
+}
+
 // ── Commands ─────────────────────────────────────────────
 
 export async function auth() {
@@ -174,15 +240,22 @@ export async function read(channelRef, count = 20, options = {}) {
   }
 }
 
-export async function send(channelRef, text) {
+export async function send(channelRef, text, options = {}) {
   const channel = await resolveChannel(channelRef);
-  const data = await slackApi("chat.postMessage", { channel, text });
+  const params = { channel, text };
+  if (options.threadTs) params.thread_ts = options.threadTs;
+  const data = await slackApi("chat.postMessage", params);
   if (data.ok) {
-    console.log(`✅ Sent to ${channelRef} (ts: ${data.ts})`);
+    const threadSuffix = options.threadTs ? ` in thread ${options.threadTs}` : "";
+    console.log(`✅ Sent to ${channelRef}${threadSuffix} (ts: ${data.ts})`);
   } else {
     console.error(`❌ Failed: ${data.error}`);
     process.exit(1);
   }
+}
+
+export async function reply(channelRef, threadTs, text) {
+  return send(channelRef, text, { threadTs });
 }
 
 export async function search(query, count = 20) {
@@ -220,11 +293,53 @@ export async function thread(channelRef, ts, count = 50) {
   }
 
   for (const msg of data.messages) {
-    const who = userName(users, msg.user);
-    const time = formatTs(msg.ts);
-    console.log(`[${time}] ${who}:`);
-    console.log(`  ${msg.text}`);
+    printMessage(users, msg, { showTs: true });
     console.log();
+  }
+}
+
+export async function permalink(channelRef, ts) {
+  const channel = await resolveChannel(channelRef);
+  const data = await slackApi("chat.getPermalink", { channel, message_ts: ts });
+  if (!data.ok) {
+    console.error(`Error: ${data.error}`);
+    process.exit(1);
+  }
+
+  console.log(data.permalink);
+}
+
+export async function showMessage(channelRef, ts) {
+  const channel = await resolveChannel(channelRef);
+  const users = await getUsers();
+
+  try {
+    const msg = await fetchMessage(channel, ts);
+    printMessage(users, msg, { showTs: true });
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+export async function messageContext(channelRef, ts, before = 2, after = 2) {
+  const channel = await resolveChannel(channelRef);
+  const users = await getUsers();
+
+  try {
+    const messages = await fetchMessageContext(channel, ts, before, after);
+    for (const msg of messages) {
+      const isTarget = msg.ts === ts;
+      printMessage(users, msg, {
+        showTs: true,
+        prefix: isTarget ? '→ ' : '  ',
+        indent: isTarget ? '    ' : '    ',
+      });
+      console.log();
+    }
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
   }
 }
 
@@ -480,6 +595,28 @@ export async function workspaces() {
     console.log(`    ID: ${id}  URL: ${info.url}`);
   }
   console.log(`\n${Object.keys(teams).length} workspaces found.`);
+}
+
+export async function currentWorkspace() {
+  const teams = listWorkspaces();
+  const activeTeam = getActiveWorkspace();
+
+  if (activeTeam && teams[activeTeam]) {
+    const info = teams[activeTeam];
+    console.log(`Current workspace: ${info.name} (${info.domain})`);
+    console.log(`ID: ${activeTeam}  URL: ${info.url}`);
+    return;
+  }
+
+  const [defaultTeamId, defaultInfo] = Object.entries(teams)[0] || [];
+  if (!defaultTeamId) {
+    console.error("No workspaces found.");
+    process.exit(1);
+  }
+
+  console.log(`Current workspace: ${defaultInfo.name} (${defaultInfo.domain})`);
+  console.log(`ID: ${defaultTeamId}  URL: ${defaultInfo.url}`);
+  console.log("No explicit workspace selected; using Slack's default local workspace.");
 }
 
 export async function switchWorkspace(query) {
