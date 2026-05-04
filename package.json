@@ -4,7 +4,7 @@
   "description": "Slack desktop-session CLI for agent workflows on macOS",
   "type": "module",
   "license": "MIT",
-  "author": "Rohit Das",
+  "author": "Kim Jisub",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kimjisub/slacklane.git"
